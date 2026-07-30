@@ -1,0 +1,41 @@
+{
+  "Cardio": [
+    "Running",
+    "Cycling",
+    "Swimming",
+    "Rowing",
+    "HIIT",
+    "Cardio5"
+  ],
+  "Weights": [
+    "Upper Body",
+    "Lower Body",
+    "Full Body",
+    "Strength",
+    "Hypertrophy"
+  ],
+  "Stretch": [
+    "Yoga",
+    "Mobility",
+    "Flexibility"
+  ],
+  "Yard": [
+    "Mowing",
+    "Gardening",
+    "Leaf Raking"
+  ],
+  "Sports": [
+    "Basketball",
+    "Soccer",
+    "Tennis",
+    "Baseball"
+  ],
+  "Walk": [
+    "Work",
+    "Home"
+  ],
+  "Other": [
+    "General",
+    "Custom"
+  ]
+}
