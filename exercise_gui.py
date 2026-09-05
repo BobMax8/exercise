@@ -298,8 +298,12 @@ class ExerciseApp(tk.Tk):
         save_btn.grid(row=0, column=0, padx=4)
         clear_btn = ttk.Button(btn_frame, text='Clear', command=self.clear_form)
         clear_btn.grid(row=0, column=1, padx=4)
+        edit_btn = ttk.Button(btn_frame, text='Edit', command=self.edit_selected_exercise)
+        edit_btn.grid(row=0, column=2, padx=4)
         del_btn = ttk.Button(btn_frame, text='Delete Selected', command=self.delete_selected)
-        del_btn.grid(row=0, column=2, padx=4)
+        del_btn.grid(row=0, column=3, padx=4)
+        exit_btn = ttk.Button(btn_frame, text='Exit', command=self.exit_app)
+        exit_btn.grid(row=0, column=4, padx=4)
 
         # Treeview to show saved entries
         cols = ('date', 'type', 'subtype', 'duration', 'mhr', 'xhr', 'ahr')
@@ -309,9 +313,6 @@ class ExerciseApp(tk.Tk):
             self.tree.heading(c, text=c.upper())
             self.tree.column(c, anchor='center', width=col_widths.get(c, 100))
         self.tree.grid(row=6, column=0, columnspan=2, pady=(10, 0))
-
-        note = ttk.Label(frm, text='Date format: YYYY-MM-DD. Double-click an entry to load it for editing.', foreground='gray')
-        note.grid(row=7, column=0, columnspan=2, pady=(6,0))
 
         self.tree.bind('<Double-1>', self.on_tree_double)
 
@@ -356,6 +357,10 @@ class ExerciseApp(tk.Tk):
         save_btn.grid(row=0, column=0, padx=4)
         clear_btn = ttk.Button(btn_frame, text='Clear', command=self.clear_goals_form)
         clear_btn.grid(row=0, column=1, padx=4)
+        edit_btn = ttk.Button(btn_frame, text='Edit', command=self.edit_selected_goals)
+        edit_btn.grid(row=0, column=2, padx=4)
+        exit_btn = ttk.Button(btn_frame, text='Exit', command=self.exit_app)
+        exit_btn.grid(row=0, column=3, padx=4)
 
         # Treeview for goals entries
         cols = ('date', 'exercise_goal', 'overall_goal', 'steps_goal')
@@ -434,6 +439,7 @@ class ExerciseApp(tk.Tk):
             self.goals_tree.delete(row)
         if not os.path.exists(GOALS_CSV_FILE):
             return
+        rows = []
         with open(GOALS_CSV_FILE, 'r', newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for r in reader:
@@ -441,7 +447,10 @@ class ExerciseApp(tk.Tk):
                 exercise_goal = r.get('exercise_goal', '')
                 overall_goal = r.get('overall_goal', '')
                 steps_goal = r.get('steps_goal', '')
-                self.goals_tree.insert('', 'end', values=(date, exercise_goal, overall_goal, steps_goal))
+                rows.append((date, exercise_goal, overall_goal, steps_goal))
+        
+        for row in reversed(rows):
+            self.goals_tree.insert('', 'end', values=row)
 
     def clear_goals_form(self):
         self.goals_date_var.set(datetime.today().strftime('%Y-%m-%d'))
@@ -467,6 +476,7 @@ class ExerciseApp(tk.Tk):
         btn_frame.pack(side='top', fill='x')
         
         ttk.Button(btn_frame, text='Refresh Chart', command=self.render_chart).pack(side='left', padx=5)
+        ttk.Button(btn_frame, text='Exit', command=self.exit_app).pack(side='left', padx=5)
         
         self.canvas_frame = ttk.Frame(frm)
         self.canvas_frame.pack(side='top', fill='both', expand=True, padx=10, pady=10)
@@ -674,10 +684,27 @@ class ExerciseApp(tk.Tk):
                 return
 
         ensure_csv_with_subtype()
-        # Append new row
-        with open(CSV_FILE, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow([date, typ, subtype, duration, mhr, xhr, ahr])
+        # Check if entry for this date exists and update or create
+        rows = []
+        found = False
+        if os.path.exists(CSV_FILE):
+            with open(CSV_FILE, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for r in reader:
+                    if r.get('date') == date:
+                        found = True
+                        rows.append({'date': date, 'type': typ, 'subtype': subtype, 'duration': duration, 'mhr': mhr, 'xhr': xhr, 'ahr': ahr})
+                    else:
+                        rows.append(r)
+        
+        if not found:
+            rows.append({'date': date, 'type': typ, 'subtype': subtype, 'duration': duration, 'mhr': mhr, 'xhr': xhr, 'ahr': ahr})
+        
+        # Write back
+        with open(CSV_FILE, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=['date', 'type', 'subtype', 'duration', 'mhr', 'xhr', 'ahr'])
+            writer.writeheader()
+            writer.writerows(rows)
 
         self.load_entries()
         self.clear_form()
@@ -692,6 +719,7 @@ class ExerciseApp(tk.Tk):
             self.tree.delete(row)
         if not os.path.exists(CSV_FILE):
             return
+        rows = []
         with open(CSV_FILE, 'r', newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for r in reader:
@@ -702,7 +730,10 @@ class ExerciseApp(tk.Tk):
                 mhr = r.get('mhr', '')
                 xhr = r.get('xhr', '')
                 ahr = r.get('ahr', '')
-                self.tree.insert('', 'end', values=(date, typ, subtype, duration, mhr, xhr, ahr))
+                rows.append((date, typ, subtype, duration, mhr, xhr, ahr))
+        
+        for row in reversed(rows):
+            self.tree.insert('', 'end', values=row)
 
     def delete_selected(self):
         sel = self.tree.selection()
@@ -764,6 +795,41 @@ class ExerciseApp(tk.Tk):
                 self.hr_frame.grid()
             else:
                 self.hr_frame.grid_remove()
+
+    def edit_selected_exercise(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning('No selection', 'Select an entry to edit')
+            return
+        vals = self.tree.item(sel[0])['values']
+        if vals:
+            self.date_var.set(vals[0])
+            self.type_combo.set(vals[1])
+            self.subtype_combo.config(values=SUBTYPES.get(vals[1], []))
+            self.subtype_combo.set(vals[2])
+            self.duration_var.set(vals[3])
+            self.mhr_var.set(vals[4] if len(vals) > 4 else '')
+            self.xhr_var.set(vals[5] if len(vals) > 5 else '')
+            self.ahr_var.set(vals[6] if len(vals) > 6 else '')
+            if vals[1] not in ['Weights', 'Stretch']:
+                self.hr_frame.grid()
+            else:
+                self.hr_frame.grid_remove()
+
+    def edit_selected_goals(self):
+        sel = self.goals_tree.selection()
+        if not sel:
+            messagebox.showwarning('No selection', 'Select an entry to edit')
+            return
+        vals = self.goals_tree.item(sel[0])['values']
+        if vals:
+            self.goals_date_var.set(vals[0])
+            self.exercise_goal_var.set(vals[1])
+            self.overall_goal_var.set(vals[2])
+            self.steps_goal_var.set(vals[3])
+
+    def exit_app(self):
+        self.destroy()
 
 
 if __name__ == '__main__':

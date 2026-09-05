@@ -1,10 +1,13 @@
 DONE Create Branches
 DONE: Yard work should collect Cardio Info
 DONE: Add 3 tier information
-TODO: Start collecting data daily/8/7
+DONE: Start collecting data daily/8/7
 DONE: Recreate Graph from spreadsheet
 TODO: Create graph for daily data
-TODO: Setup GIT
-TODO: Publish to laptop
-TODO: Double click should open for edit.
-TODO: Need exit button.
+DONE: Setup GIT
+DONE: Publish to laptop
+DONE: Double click should open for edit.
+DONE: Need exit button.
+DONE: Should display in reverse order
+TODO: Make the top buttons stand out from each other
+TODO: Publish.
