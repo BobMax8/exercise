@@ -4,11 +4,29 @@ from tkinter import ttk
 import csv
 import os
 import json
+import sys
 from datetime import datetime
 import calendar
+from collections import defaultdict
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import numpy as np
 
-CSV_FILE = os.path.join(os.path.dirname(__file__), 'exercises.csv')
-SUBTYPES_FILE = os.path.join(os.path.dirname(__file__), 'subtypes.json')
+def _get_base_dir():
+    """Return folder where external data files should be read/written.
+    When running as a frozen executable (PyInstaller onefile), use the
+    executable's directory so files placed next to the exe are found.
+    Otherwise use the source file directory during development.
+    """
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(__file__)
+
+BASE_DIR = _get_base_dir()
+CSV_FILE = os.path.join(BASE_DIR, 'exercises.csv')
+SUBTYPES_FILE = os.path.join(BASE_DIR, 'subtypes.json')
+GOALS_CSV_FILE = os.path.join(BASE_DIR, 'daily_goals.csv')
 TYPES = ["Cardio", "Weights", "Stretch", "Yard", "Sports", "Walk", "Other"]
 DEFAULT_SUBTYPES = {
     'Cardio': ['Running', 'Cycling', 'Swimming', 'Rowing', 'HIIT'],
@@ -97,6 +115,13 @@ def ensure_csv_with_subtype():
                 typ = r[1] if len(r) > 1 else ''
                 duration = r[2] if len(r) > 2 else ''
             writer.writerow([date, typ, '', duration, '', '', ''])
+
+
+def ensure_goals_csv():
+    if not os.path.exists(GOALS_CSV_FILE):
+        with open(GOALS_CSV_FILE, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['date', 'exercise_goal', 'overall_goal', 'steps_goal'])
 
 
 class CalendarPopup(tk.Toplevel):
@@ -188,19 +213,39 @@ class ExerciseApp(tk.Tk):
         super().__init__()
         self.title('Exercise Logger')
         self.resizable(False, False)
-        self.create_widgets()
         ensure_csv_with_subtype()
+        ensure_goals_csv()
+        self.create_widgets()
         self.load_entries()
+        self.load_goals_entry()
 
     def create_widgets(self):
-        frm = ttk.Frame(self, padding=12)
-        frm.grid(row=0, column=0, sticky='NSEW')
+        # Create notebook (tabbed interface)
+        self.notebook = ttk.Notebook(self)
+        self.notebook.grid(row=0, column=0, sticky='NSEW', padx=5, pady=5)
+        
+        # Exercise Logger Tab
+        self.exercise_frame = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(self.exercise_frame, text='Exercise Logger')
+        self.create_exercise_widgets()
+        
+        # Daily Goals Tab
+        self.goals_frame = ttk.Frame(self.notebook, padding=12)
+        self.notebook.add(self.goals_frame, text='Daily Goals')
+        self.create_goals_widgets()
+        
+        # Chart Tab
+        self.chart_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.chart_frame, text='Chart')
+        self.create_chart_widgets()
+
+    def create_exercise_widgets(self):
+        frm = self.exercise_frame
 
         ttk.Label(frm, text='Date (YYYY-MM-DD):').grid(row=0, column=0, sticky='W')
         self.date_var = tk.StringVar(value=datetime.today().strftime('%Y-%m-%d'))
         self.date_entry = ttk.Entry(frm, textvariable=self.date_var, width=20)
         self.date_entry.grid(row=0, column=1, sticky='W')
-        # Open calendar when clicking the date field
         self.date_entry.bind('<Button-1>', self.open_calendar)
 
         ttk.Label(frm, text='Type:').grid(row=1, column=0, sticky='W', pady=(6,0))
@@ -270,6 +315,58 @@ class ExerciseApp(tk.Tk):
 
         self.tree.bind('<Double-1>', self.on_tree_double)
 
+    def create_goals_widgets(self):
+        frm = self.goals_frame
+
+        ttk.Label(frm, text='Date (YYYY-MM-DD):', font=('TkDefaultFont', 11)).grid(row=0, column=0, sticky='W', pady=10)
+        self.goals_date_var = tk.StringVar(value=datetime.today().strftime('%Y-%m-%d'))
+        self.goals_date_entry = ttk.Entry(frm, textvariable=self.goals_date_var, width=20)
+        self.goals_date_entry.grid(row=0, column=1, sticky='W', pady=10)
+        self.goals_date_entry.bind('<Button-1>', self.open_goals_calendar)
+
+        # Exercise Goal
+        ttk.Label(frm, text='Exercise Goal:', font=('TkDefaultFont', 11)).grid(row=1, column=0, sticky='W', pady=10)
+        self.exercise_goal_var = tk.StringVar(value='No')
+        exercise_frame = ttk.Frame(frm)
+        exercise_frame.grid(row=1, column=1, sticky='W', pady=10)
+        ttk.Radiobutton(exercise_frame, text='Yes', variable=self.exercise_goal_var, value='Yes').pack(side='left', padx=10)
+        ttk.Radiobutton(exercise_frame, text='No', variable=self.exercise_goal_var, value='No').pack(side='left', padx=10)
+
+        # Overall Goal
+        ttk.Label(frm, text='Overall Goal:', font=('TkDefaultFont', 11)).grid(row=2, column=0, sticky='W', pady=10)
+        self.overall_goal_var = tk.StringVar(value='No')
+        overall_frame = ttk.Frame(frm)
+        overall_frame.grid(row=2, column=1, sticky='W', pady=10)
+        ttk.Radiobutton(overall_frame, text='Yes', variable=self.overall_goal_var, value='Yes').pack(side='left', padx=10)
+        ttk.Radiobutton(overall_frame, text='No', variable=self.overall_goal_var, value='No').pack(side='left', padx=10)
+
+        # Steps Goal
+        ttk.Label(frm, text='Steps Goal:', font=('TkDefaultFont', 11)).grid(row=3, column=0, sticky='W', pady=10)
+        self.steps_goal_var = tk.StringVar(value='No')
+        steps_frame = ttk.Frame(frm)
+        steps_frame.grid(row=3, column=1, sticky='W', pady=10)
+        ttk.Radiobutton(steps_frame, text='Yes', variable=self.steps_goal_var, value='Yes').pack(side='left', padx=10)
+        ttk.Radiobutton(steps_frame, text='No', variable=self.steps_goal_var, value='No').pack(side='left', padx=10)
+
+        # Button frame
+        btn_frame = ttk.Frame(frm)
+        btn_frame.grid(row=4, column=0, columnspan=2, pady=(20, 0))
+
+        save_btn = ttk.Button(btn_frame, text='Save', command=self.save_goals_entry)
+        save_btn.grid(row=0, column=0, padx=4)
+        clear_btn = ttk.Button(btn_frame, text='Clear', command=self.clear_goals_form)
+        clear_btn.grid(row=0, column=1, padx=4)
+
+        # Treeview for goals entries
+        cols = ('date', 'exercise_goal', 'overall_goal', 'steps_goal')
+        self.goals_tree = ttk.Treeview(frm, columns=cols, show='headings', height=10)
+        col_widths = {'date': 120, 'exercise_goal': 120, 'overall_goal': 120, 'steps_goal': 120}
+        for c in cols:
+            self.goals_tree.heading(c, text=c.replace('_', ' ').upper())
+            self.goals_tree.column(c, anchor='center', width=col_widths.get(c, 120))
+        self.goals_tree.grid(row=5, column=0, columnspan=2, pady=(10, 0))
+        self.goals_tree.bind('<Double-1>', self.on_goals_tree_double)
+
     def on_type_change(self, event=None):
         typ = self.type_var.get()
         choices = SUBTYPES.get(typ, [])
@@ -279,11 +376,173 @@ class ExerciseApp(tk.Tk):
         else:
             self.subtype_combo.set('')
         
-        # Show heart rate fields only for Cardio
-        if typ == 'Cardio':
+        # Show heart rate fields for all types except Weights and Stretch
+        if typ not in ['Weights', 'Stretch']:
             self.hr_frame.grid()
         else:
             self.hr_frame.grid_remove()
+
+    def open_goals_calendar(self, event=None):
+        x = self.winfo_rootx() + self.goals_date_entry.winfo_rootx()
+        y = self.winfo_rooty() + self.goals_date_entry.winfo_rooty() + self.goals_date_entry.winfo_height()
+        cal = CalendarPopup(self, self.goals_date_var)
+        try:
+            cal.geometry(f'+{x}+{y}')
+        except Exception:
+            pass
+
+    def save_goals_entry(self):
+        date = self.goals_date_var.get().strip()
+        if not self.validate_date(date):
+            messagebox.showerror('Invalid date', 'Please enter date as YYYY-MM-DD')
+            return
+        
+        exercise_goal = self.exercise_goal_var.get()
+        overall_goal = self.overall_goal_var.get()
+        steps_goal = self.steps_goal_var.get()
+        
+        ensure_goals_csv()
+        
+        # Check if entry for this date exists
+        rows = []
+        found = False
+        if os.path.exists(GOALS_CSV_FILE):
+            with open(GOALS_CSV_FILE, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for r in reader:
+                    if r.get('date') == date:
+                        found = True
+                        rows.append({'date': date, 'exercise_goal': exercise_goal, 'overall_goal': overall_goal, 'steps_goal': steps_goal})
+                    else:
+                        rows.append(r)
+        
+        if not found:
+            rows.append({'date': date, 'exercise_goal': exercise_goal, 'overall_goal': overall_goal, 'steps_goal': steps_goal})
+        
+        # Write back
+        with open(GOALS_CSV_FILE, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=['date', 'exercise_goal', 'overall_goal', 'steps_goal'])
+            writer.writeheader()
+            writer.writerows(rows)
+        
+        self.load_goals_entry()
+        self.clear_goals_form()
+        messagebox.showinfo('Saved', 'Daily goals saved successfully')
+
+    def load_goals_entry(self):
+        for row in self.goals_tree.get_children():
+            self.goals_tree.delete(row)
+        if not os.path.exists(GOALS_CSV_FILE):
+            return
+        with open(GOALS_CSV_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for r in reader:
+                date = r.get('date', '')
+                exercise_goal = r.get('exercise_goal', '')
+                overall_goal = r.get('overall_goal', '')
+                steps_goal = r.get('steps_goal', '')
+                self.goals_tree.insert('', 'end', values=(date, exercise_goal, overall_goal, steps_goal))
+
+    def clear_goals_form(self):
+        self.goals_date_var.set(datetime.today().strftime('%Y-%m-%d'))
+        self.exercise_goal_var.set('No')
+        self.overall_goal_var.set('No')
+        self.steps_goal_var.set('No')
+
+    def on_goals_tree_double(self, event):
+        sel = self.goals_tree.selection()
+        if not sel:
+            return
+        vals = self.goals_tree.item(sel[0])['values']
+        if vals:
+            self.goals_date_var.set(vals[0])
+            self.exercise_goal_var.set(vals[1])
+            self.overall_goal_var.set(vals[2])
+            self.steps_goal_var.set(vals[3])
+
+    def create_chart_widgets(self):
+        frm = self.chart_frame
+        
+        btn_frame = ttk.Frame(frm, padding=10)
+        btn_frame.pack(side='top', fill='x')
+        
+        ttk.Button(btn_frame, text='Refresh Chart', command=self.render_chart).pack(side='left', padx=5)
+        
+        self.canvas_frame = ttk.Frame(frm)
+        self.canvas_frame.pack(side='top', fill='both', expand=True, padx=10, pady=10)
+        
+        self.render_chart()
+
+    def load_exercise_data(self):
+        data = defaultdict(lambda: defaultdict(float))
+        
+        if not os.path.exists(CSV_FILE):
+            return data
+        
+        with open(CSV_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                date_str = row.get('date', '').strip()
+                duration_str = row.get('duration', '').strip()
+                
+                if not date_str or not duration_str:
+                    continue
+                
+                try:
+                    date = datetime.strptime(date_str, '%Y-%m-%d')
+                    duration = float(duration_str)
+                    year = date.year
+                    month = date.month
+                    data[year][month] += duration
+                except (ValueError, KeyError):
+                    continue
+        
+        return data
+
+    def render_chart(self):
+        for widget in self.canvas_frame.winfo_children():
+            widget.destroy()
+        
+        data = self.load_exercise_data()
+        
+        if not data:
+            label = ttk.Label(self.canvas_frame, text='No exercise data found. Add exercises to see the chart.')
+            label.pack(padx=20, pady=20)
+            return
+        
+        years = sorted(data.keys())
+        months = range(1, 13)
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        fig = Figure(figsize=(12, 6), dpi=100)
+        ax = fig.add_subplot(111)
+        
+        x = np.arange(len(months))
+        width = 0.8 / len(years) if len(years) > 1 else 0.6
+        
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+                  '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+        
+        for idx, year in enumerate(years):
+            minutes_per_month = [data[year].get(month, 0) for month in months]
+            offset = (idx - len(years)/2 + 0.5) * width
+            ax.bar(x + offset, minutes_per_month, width, label=str(year), 
+                   color=colors[idx % len(colors)])
+        
+        ax.set_xlabel('Month', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Total Exercise Minutes', fontsize=12, fontweight='bold')
+        ax.set_title('Exercise Minutes Per Month', fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(month_names)
+        ax.legend(title='Year', fontsize=10)
+        ax.grid(axis='y', alpha=0.3)
+        
+        fig.tight_layout()
+        
+        canvas = FigureCanvasTkAgg(fig, master=self.canvas_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
 
     def add_subtype(self):
         typ = self.type_var.get()
@@ -403,7 +662,7 @@ class ExerciseApp(tk.Tk):
             messagebox.showerror('Invalid duration', 'Please enter a non-negative number for duration')
             return
         
-        if typ == 'Cardio':
+        if typ not in ['Weights', 'Stretch']:
             if not self.validate_heart_rate(mhr):
                 messagebox.showerror('Invalid MHR', 'Please enter a non-negative number for Minimum Heart Rate')
                 return
@@ -422,6 +681,10 @@ class ExerciseApp(tk.Tk):
 
         self.load_entries()
         self.clear_form()
+        try:
+            self.render_chart()
+        except Exception:
+            pass
         messagebox.showinfo('Saved', 'Exercise saved successfully')
 
     def load_entries(self):
@@ -459,6 +722,10 @@ class ExerciseApp(tk.Tk):
             for r in remaining:
                 writer.writerow(r)
         self.load_entries()
+        try:
+            self.render_chart()
+        except Exception:
+            pass
 
     def clear_form(self):
         self.date_var.set(datetime.today().strftime('%Y-%m-%d'))
@@ -470,8 +737,8 @@ class ExerciseApp(tk.Tk):
         self.mhr_var.set('')
         self.xhr_var.set('')
         self.ahr_var.set('')
-        # Show heart rate fields for default type (Cardio)
-        if TYPES[0] == 'Cardio':
+        # Show heart rate fields for all types except Weights and Stretch
+        if TYPES[0] not in ['Weights', 'Stretch']:
             self.hr_frame.grid()
         else:
             self.hr_frame.grid_remove()
@@ -493,7 +760,7 @@ class ExerciseApp(tk.Tk):
             self.xhr_var.set(vals[5] if len(vals) > 5 else '')
             self.ahr_var.set(vals[6] if len(vals) > 6 else '')
             # Show/hide heart rate fields based on type
-            if vals[1] == 'Cardio':
+            if vals[1] not in ['Weights', 'Stretch']:
                 self.hr_frame.grid()
             else:
                 self.hr_frame.grid_remove()

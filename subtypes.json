@@ -12,12 +12,14 @@
     "Lower Body",
     "Full Body",
     "Strength",
-    "Hypertrophy"
+    "Hypertrophy",
+    "Dumbbells/Joy"
   ],
   "Stretch": [
     "Yoga",
     "Mobility",
-    "Flexibility"
+    "Flexibility",
+    "Hinge Bob"
   ],
   "Yard": [
     "Mowing",
@@ -28,7 +30,8 @@
     "Basketball",
     "Soccer",
     "Tennis",
-    "Baseball"
+    "Baseball",
+    "Golf"
   ],
   "Walk": [
     "Work",
