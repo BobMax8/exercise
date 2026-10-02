@@ -5,7 +5,7 @@ import csv
 import os
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 from collections import defaultdict
 import matplotlib.pyplot as plt
@@ -150,11 +150,11 @@ class CalendarPopup(tk.Toplevel):
     def build_ui(self):
         hdr = ttk.Frame(self, padding=6)
         hdr.grid(row=0, column=0)
-        prev = ttk.Button(hdr, text='<', width=3, command=self.prev_month)
+        prev = tk.Button(hdr, text='<', width=3, command=self.prev_month, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10))
         prev.grid(row=0, column=0)
         self.title_lbl = ttk.Label(hdr, text='')
         self.title_lbl.grid(row=0, column=1, padx=8)
-        nxt = ttk.Button(hdr, text='>', width=3, command=self.next_month)
+        nxt = tk.Button(hdr, text='>', width=3, command=self.next_month, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10))
         nxt.grid(row=0, column=2)
 
         self.cal_frame = ttk.Frame(self, padding=6)
@@ -176,8 +176,8 @@ class CalendarPopup(tk.Toplevel):
                     lbl = ttk.Label(self.cal_frame, text='')
                     lbl.grid(row=r, column=c, padx=2, pady=2)
                 else:
-                    btn = ttk.Button(self.cal_frame, text=str(day), width=3,
-                                     command=lambda d=day: self.select_day(d))
+                    btn = tk.Button(self.cal_frame, text=str(day), width=3,
+                                     command=lambda d=day: self.select_day(d), bg='#87CEEB', fg='black', font=('TkDefaultFont', 10))
                     btn.grid(row=r, column=c, padx=2, pady=2)
 
     def prev_month(self):
@@ -215,6 +215,15 @@ class ExerciseApp(tk.Tk):
         self.resizable(False, False)
         ensure_csv_with_subtype()
         ensure_goals_csv()
+        self.chart_type = 'exercise'  # Track which chart to display: 'exercise' or 'goals'
+        
+        # Configure notebook tab style
+        style = ttk.Style()
+        style.configure('TNotebook.Tab', padding=[20, 10])
+        style.map('TNotebook.Tab',
+                  background=[('selected', '#87CEEB'), ('', '#f0f0f0')],
+                  foreground=[('selected', 'black'), ('', 'black')])
+        
         self.create_widgets()
         self.load_entries()
         self.load_goals_entry()
@@ -243,7 +252,7 @@ class ExerciseApp(tk.Tk):
         frm = self.exercise_frame
 
         ttk.Label(frm, text='Date (YYYY-MM-DD):').grid(row=0, column=0, sticky='W')
-        self.date_var = tk.StringVar(value=datetime.today().strftime('%Y-%m-%d'))
+        self.date_var = tk.StringVar(value=(datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d'))
         self.date_entry = ttk.Entry(frm, textvariable=self.date_var, width=20)
         self.date_entry.grid(row=0, column=1, sticky='W')
         self.date_entry.bind('<Button-1>', self.open_calendar)
@@ -262,9 +271,9 @@ class ExerciseApp(tk.Tk):
         self.subtype_combo = ttk.Combobox(subtype_frame, textvariable=self.subtype_var, values=SUBTYPES[TYPES[0]], state='readonly', width=20)
         self.subtype_combo.grid(row=0, column=0, sticky='W')
         self.subtype_combo.set(SUBTYPES[TYPES[0]][0])
-        add_btn = ttk.Button(subtype_frame, text='+', width=3, command=self.add_subtype)
+        add_btn = tk.Button(subtype_frame, text='+', width=3, command=self.add_subtype, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10))
         add_btn.grid(row=0, column=1, padx=(6,2))
-        del_btn = ttk.Button(subtype_frame, text='-', width=3, command=self.delete_subtype)
+        del_btn = tk.Button(subtype_frame, text='-', width=3, command=self.delete_subtype, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10))
         del_btn.grid(row=0, column=2, padx=(2,0))
 
         ttk.Label(frm, text='Duration (minutes):').grid(row=3, column=0, sticky='W', pady=(6,0))
@@ -291,19 +300,25 @@ class ExerciseApp(tk.Tk):
         self.ahr_entry = ttk.Entry(self.hr_frame, textvariable=self.ahr_var, width=10)
         self.ahr_entry.grid(row=2, column=1, sticky='W', padx=(6, 0), pady=(6, 0))
 
-        btn_frame = ttk.Frame(frm)
-        btn_frame.grid(row=5, column=0, columnspan=2, pady=(10, 0))
+        btn_frame = ttk.Frame(frm, relief='raised', borderwidth=2)
+        btn_frame.grid(row=5, column=0, columnspan=2, pady=(15, 10), sticky='EW', padx=5)
 
-        save_btn = ttk.Button(btn_frame, text='Save', command=self.save_entry)
-        save_btn.grid(row=0, column=0, padx=4)
-        clear_btn = ttk.Button(btn_frame, text='Clear', command=self.clear_form)
-        clear_btn.grid(row=0, column=1, padx=4)
-        edit_btn = ttk.Button(btn_frame, text='Edit', command=self.edit_selected_exercise)
-        edit_btn.grid(row=0, column=2, padx=4)
-        del_btn = ttk.Button(btn_frame, text='Delete Selected', command=self.delete_selected)
-        del_btn.grid(row=0, column=3, padx=4)
-        exit_btn = ttk.Button(btn_frame, text='Exit', command=self.exit_app)
-        exit_btn.grid(row=0, column=4, padx=4)
+        save_btn = tk.Button(btn_frame, text='Save', command=self.save_entry, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        save_btn.grid(row=0, column=0, padx=8, pady=8)
+        clear_btn = tk.Button(btn_frame, text='Clear', command=self.clear_form, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        clear_btn.grid(row=0, column=1, padx=8, pady=8)
+        
+        ttk.Separator(btn_frame, orient='vertical').grid(row=0, column=2, padx=5, sticky='NS')
+        
+        edit_btn = tk.Button(btn_frame, text='Edit', command=self.edit_selected_exercise, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        edit_btn.grid(row=0, column=3, padx=8, pady=8)
+        del_btn = tk.Button(btn_frame, text='Delete Selected', command=self.delete_selected, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        del_btn.grid(row=0, column=4, padx=8, pady=8)
+        
+        ttk.Separator(btn_frame, orient='vertical').grid(row=0, column=5, padx=5, sticky='NS')
+        
+        exit_btn = tk.Button(btn_frame, text='Exit', command=self.exit_app, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        exit_btn.grid(row=0, column=6, padx=8, pady=8)
 
         # Treeview to show saved entries
         cols = ('date', 'type', 'subtype', 'duration', 'mhr', 'xhr', 'ahr')
@@ -350,17 +365,23 @@ class ExerciseApp(tk.Tk):
         ttk.Radiobutton(steps_frame, text='No', variable=self.steps_goal_var, value='No').pack(side='left', padx=10)
 
         # Button frame
-        btn_frame = ttk.Frame(frm)
-        btn_frame.grid(row=4, column=0, columnspan=2, pady=(20, 0))
+        btn_frame = ttk.Frame(frm, relief='raised', borderwidth=2)
+        btn_frame.grid(row=4, column=0, columnspan=2, pady=(20, 10), sticky='EW', padx=5)
 
-        save_btn = ttk.Button(btn_frame, text='Save', command=self.save_goals_entry)
-        save_btn.grid(row=0, column=0, padx=4)
-        clear_btn = ttk.Button(btn_frame, text='Clear', command=self.clear_goals_form)
-        clear_btn.grid(row=0, column=1, padx=4)
-        edit_btn = ttk.Button(btn_frame, text='Edit', command=self.edit_selected_goals)
-        edit_btn.grid(row=0, column=2, padx=4)
-        exit_btn = ttk.Button(btn_frame, text='Exit', command=self.exit_app)
-        exit_btn.grid(row=0, column=3, padx=4)
+        save_btn = tk.Button(btn_frame, text='Save', command=self.save_goals_entry, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        save_btn.grid(row=0, column=0, padx=8, pady=8)
+        clear_btn = tk.Button(btn_frame, text='Clear', command=self.clear_goals_form, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        clear_btn.grid(row=0, column=1, padx=8, pady=8)
+        
+        ttk.Separator(btn_frame, orient='vertical').grid(row=0, column=2, padx=5, sticky='NS')
+        
+        edit_btn = tk.Button(btn_frame, text='Edit', command=self.edit_selected_goals, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        edit_btn.grid(row=0, column=3, padx=8, pady=8)
+        
+        ttk.Separator(btn_frame, orient='vertical').grid(row=0, column=4, padx=5, sticky='NS')
+        
+        exit_btn = tk.Button(btn_frame, text='Exit', command=self.exit_app, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12)
+        exit_btn.grid(row=0, column=5, padx=8, pady=8)
 
         # Treeview for goals entries
         cols = ('date', 'exercise_goal', 'overall_goal', 'steps_goal')
@@ -448,12 +469,14 @@ class ExerciseApp(tk.Tk):
                 overall_goal = r.get('overall_goal', '')
                 steps_goal = r.get('steps_goal', '')
                 rows.append((date, exercise_goal, overall_goal, steps_goal))
-        
-        for row in reversed(rows):
+         
+        rows.sort(key=lambda x: x[0], reverse=True)
+        for row in rows:
             self.goals_tree.insert('', 'end', values=row)
 
     def clear_goals_form(self):
-        self.goals_date_var.set(datetime.today().strftime('%Y-%m-%d'))
+        # self.goals_date_var.set(datetime.today().strftime('%Y-%m-%d'))
+        self.goals_date_var = tk.StringVar(value=datetime.today().strftime('%Y-%m-%d'))
         self.exercise_goal_var.set('No')
         self.overall_goal_var.set('No')
         self.steps_goal_var.set('No')
@@ -475,8 +498,10 @@ class ExerciseApp(tk.Tk):
         btn_frame = ttk.Frame(frm, padding=10)
         btn_frame.pack(side='top', fill='x')
         
-        ttk.Button(btn_frame, text='Refresh Chart', command=self.render_chart).pack(side='left', padx=5)
-        ttk.Button(btn_frame, text='Exit', command=self.exit_app).pack(side='left', padx=5)
+        tk.Button(btn_frame, text='Exercise Chart', command=self.show_exercise_chart, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12).pack(side='left', padx=5)
+        tk.Button(btn_frame, text='Daily Goals Chart', command=self.show_goals_chart, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12).pack(side='left', padx=5)
+        tk.Button(btn_frame, text='Refresh Chart', command=self.render_chart, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12).pack(side='left', padx=5)
+        tk.Button(btn_frame, text='Exit', command=self.exit_app, bg='#87CEEB', fg='black', font=('TkDefaultFont', 10), padx=12).pack(side='left', padx=5)
         
         self.canvas_frame = ttk.Frame(frm)
         self.canvas_frame.pack(side='top', fill='both', expand=True, padx=10, pady=10)
@@ -509,10 +534,66 @@ class ExerciseApp(tk.Tk):
         
         return data
 
+    def load_goals_data(self):
+        data = {}
+        
+        if not os.path.exists(GOALS_CSV_FILE):
+            return data
+        
+        with open(GOALS_CSV_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                date_str = row.get('date', '').strip()
+                exercise_goal = row.get('exercise_goal', '').strip()
+                overall_goal = row.get('overall_goal', '').strip()
+                steps_goal = row.get('steps_goal', '').strip()
+                
+                if not date_str:
+                    continue
+                
+                try:
+                    date = datetime.strptime(date_str, '%Y-%m-%d')
+                    yeses = sum([1 for goal in [exercise_goal, overall_goal, steps_goal] if goal == 'Yes'])
+                    data[date] = yeses
+                except ValueError:
+                    continue
+        
+        return data
+
+    def get_weekly_data(self, daily_data):
+        weekly = defaultdict(list)
+        
+        for date, yeses in daily_data.items():
+            monday = date - timedelta(days=date.weekday())
+            sunday = monday + timedelta(days=6)
+            week_key = (monday, sunday)
+            weekly[week_key].append(yeses)
+        
+        result = {}
+        for (monday, sunday), values in sorted(weekly.items()):
+            avg = sum(values) / len(values) if values else 0
+            result[monday] = {'avg': avg, 'end_date': sunday, 'count': len(values)}
+        
+        return result
+
+    def show_exercise_chart(self):
+        self.chart_type = 'exercise'
+        self.render_chart()
+
+    def show_goals_chart(self):
+        self.chart_type = 'goals'
+        self.render_chart()
+
     def render_chart(self):
         for widget in self.canvas_frame.winfo_children():
             widget.destroy()
         
+        if self.chart_type == 'goals':
+            self.render_goals_chart()
+        else:
+            self.render_exercise_chart()
+
+    def render_exercise_chart(self):
         data = self.load_exercise_data()
         
         if not data:
@@ -547,6 +628,43 @@ class ExerciseApp(tk.Tk):
         ax.set_xticklabels(month_names)
         ax.legend(title='Year', fontsize=10)
         ax.grid(axis='y', alpha=0.3)
+        
+        fig.tight_layout()
+        
+        canvas = FigureCanvasTkAgg(fig, master=self.canvas_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    def render_goals_chart(self):
+        data = self.load_goals_data()
+        
+        if not data:
+            label = ttk.Label(self.canvas_frame, text='No daily goals data found. Add goals to see the chart.')
+            label.pack(padx=20, pady=20)
+            return
+        
+        weekly_data = self.get_weekly_data(data)
+        
+        sorted_weeks = sorted(weekly_data.keys())
+        week_labels = [d.strftime('%m/%d') + ' - ' + weekly_data[d]['end_date'].strftime('%m/%d') for d in sorted_weeks]
+        averages = [weekly_data[d]['avg'] for d in sorted_weeks]
+        
+        fig = Figure(figsize=(12, 6), dpi=100)
+        ax = fig.add_subplot(111)
+        
+        ax.plot(range(len(sorted_weeks)), averages, marker='o', linewidth=2, markersize=8, color='#1f77b4', markerfacecolor='#ff7f0e')
+        ax.fill_between(range(len(sorted_weeks)), averages, alpha=0.3, color='#1f77b4')
+        
+        ax.set_xlabel('Week (Monday - Sunday)', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Average "Yes" Goals per Day', fontsize=12, fontweight='bold')
+        ax.set_title('Weekly Average Goals Completion', fontsize=14, fontweight='bold')
+        ax.set_xticks(range(0, len(sorted_weeks), max(1, len(sorted_weeks)//10)))
+        ax.set_xticklabels([week_labels[i] for i in range(0, len(sorted_weeks), max(1, len(sorted_weeks)//10))], rotation=45, ha='right')
+        ax.set_ylim(0, 3.5)
+        ax.grid(True, alpha=0.3)
+        
+        for i, (week, avg) in enumerate(zip(sorted_weeks, averages)):
+            ax.text(i, avg + 0.15, f'{avg:.1f}', ha='center', va='bottom', fontweight='bold', fontsize=9)
         
         fig.tight_layout()
         
@@ -684,21 +802,15 @@ class ExerciseApp(tk.Tk):
                 return
 
         ensure_csv_with_subtype()
-        # Check if entry for this date exists and update or create
+        # Always add a new entry (allows multiple workouts per day)
         rows = []
-        found = False
         if os.path.exists(CSV_FILE):
             with open(CSV_FILE, 'r', newline='', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for r in reader:
-                    if r.get('date') == date:
-                        found = True
-                        rows.append({'date': date, 'type': typ, 'subtype': subtype, 'duration': duration, 'mhr': mhr, 'xhr': xhr, 'ahr': ahr})
-                    else:
-                        rows.append(r)
-        
-        if not found:
-            rows.append({'date': date, 'type': typ, 'subtype': subtype, 'duration': duration, 'mhr': mhr, 'xhr': xhr, 'ahr': ahr})
+                    rows.append(r)
+         
+        rows.append({'date': date, 'type': typ, 'subtype': subtype, 'duration': duration, 'mhr': mhr, 'xhr': xhr, 'ahr': ahr})
         
         # Write back
         with open(CSV_FILE, 'w', newline='', encoding='utf-8') as f:
@@ -731,8 +843,9 @@ class ExerciseApp(tk.Tk):
                 xhr = r.get('xhr', '')
                 ahr = r.get('ahr', '')
                 rows.append((date, typ, subtype, duration, mhr, xhr, ahr))
-        
-        for row in reversed(rows):
+         
+        rows.sort(key=lambda x: x[0], reverse=True)
+        for row in rows:
             self.tree.insert('', 'end', values=row)
 
     def delete_selected(self):
