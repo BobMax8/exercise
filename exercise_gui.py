@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, filedialog
 from tkinter import ttk
 import csv
 import os
@@ -24,10 +24,44 @@ def _get_base_dir():
     return os.path.dirname(__file__)
 
 BASE_DIR = _get_base_dir()
-CSV_FILE = os.path.join(BASE_DIR, 'exercises.csv')
-SUBTYPES_FILE = os.path.join(BASE_DIR, 'subtypes.json')
-GOALS_CSV_FILE = os.path.join(BASE_DIR, 'daily_goals.csv')
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+DATA_DIR_SETTINGS_FILE = os.path.join(BASE_DIR, 'data_dir_settings.json')
+CSV_FILE = os.path.join(DATA_DIR, 'exercises.csv')
+SUBTYPES_FILE = os.path.join(DATA_DIR, 'subtypes.json')
+GOALS_CSV_FILE = os.path.join(DATA_DIR, 'daily_goals.csv')
 TYPES = ["Cardio", "Weights", "Stretch", "Yard", "Sports", "Walk", "Other"]
+
+
+def get_data_dir():
+    if os.path.exists(DATA_DIR_SETTINGS_FILE):
+        try:
+            with open(DATA_DIR_SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                saved_dir = json.load(f)
+            if isinstance(saved_dir, str) and saved_dir.strip():
+                return saved_dir.strip()
+        except Exception:
+            pass
+    return BASE_DIR
+
+
+def set_data_dir(path):
+    directory = os.path.abspath(path)
+    os.makedirs(directory, exist_ok=True)
+    with open(DATA_DIR_SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(directory, f)
+    return directory
+
+
+def refresh_data_paths():
+    global DATA_DIR, CSV_FILE, SUBTYPES_FILE, GOALS_CSV_FILE, SUBTYPES
+    DATA_DIR = get_data_dir()
+    CSV_FILE = os.path.join(DATA_DIR, 'exercises.csv')
+    SUBTYPES_FILE = os.path.join(DATA_DIR, 'subtypes.json')
+    GOALS_CSV_FILE = os.path.join(DATA_DIR, 'daily_goals.csv')
+    os.makedirs(DATA_DIR, exist_ok=True)
+    SUBTYPES = load_subtypes()
+
+
 DEFAULT_SUBTYPES = {
     'Cardio': ['Running', 'Cycling', 'Swimming', 'Rowing', 'HIIT'],
     'Weights': ['Upper Body', 'Lower Body', 'Full Body', 'Strength', 'Hypertrophy'],
@@ -53,6 +87,7 @@ def load_subtypes():
             pass
     # create defaults
     try:
+        os.makedirs(DATA_DIR, exist_ok=True)
         with open(SUBTYPES_FILE, 'w', encoding='utf-8') as f:
             json.dump(DEFAULT_SUBTYPES, f, indent=2)
     except Exception:
@@ -68,10 +103,12 @@ def save_subtypes(subtypes):
         messagebox.showwarning('Warning', 'Failed to save subtype definitions to file')
 
 
+refresh_data_paths()
 SUBTYPES = load_subtypes()
 
 
 def ensure_csv():
+    os.makedirs(DATA_DIR, exist_ok=True)
     if not os.path.exists(CSV_FILE):
         with open(CSV_FILE, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -118,6 +155,7 @@ def ensure_csv_with_subtype():
 
 
 def ensure_goals_csv():
+    os.makedirs(DATA_DIR, exist_ok=True)
     if not os.path.exists(GOALS_CSV_FILE):
         with open(GOALS_CSV_FILE, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -302,8 +340,10 @@ class ExerciseApp(tk.Tk):
         edit_btn.grid(row=0, column=2, padx=4)
         del_btn = ttk.Button(btn_frame, text='Delete Selected', command=self.delete_selected)
         del_btn.grid(row=0, column=3, padx=4)
+        folder_btn = ttk.Button(btn_frame, text='Select Data Folder', command=self.choose_data_directory)
+        folder_btn.grid(row=0, column=4, padx=4)
         exit_btn = ttk.Button(btn_frame, text='Exit', command=self.exit_app)
-        exit_btn.grid(row=0, column=4, padx=4)
+        exit_btn.grid(row=0, column=5, padx=4)
 
         # Treeview to show saved entries
         cols = ('date', 'type', 'subtype', 'duration', 'mhr', 'xhr', 'ahr')
@@ -359,8 +399,10 @@ class ExerciseApp(tk.Tk):
         clear_btn.grid(row=0, column=1, padx=4)
         edit_btn = ttk.Button(btn_frame, text='Edit', command=self.edit_selected_goals)
         edit_btn.grid(row=0, column=2, padx=4)
+        folder_btn = ttk.Button(btn_frame, text='Select Data Folder', command=self.choose_data_directory)
+        folder_btn.grid(row=0, column=3, padx=4)
         exit_btn = ttk.Button(btn_frame, text='Exit', command=self.exit_app)
-        exit_btn.grid(row=0, column=3, padx=4)
+        exit_btn.grid(row=0, column=4, padx=4)
 
         # Treeview for goals entries
         cols = ('date', 'exercise_goal', 'overall_goal', 'steps_goal')
@@ -476,12 +518,33 @@ class ExerciseApp(tk.Tk):
         btn_frame.pack(side='top', fill='x')
         
         ttk.Button(btn_frame, text='Refresh Chart', command=self.render_chart).pack(side='left', padx=5)
+        ttk.Button(btn_frame, text='Set Data Folder', command=self.choose_data_directory).pack(side='left', padx=5)
         ttk.Button(btn_frame, text='Exit', command=self.exit_app).pack(side='left', padx=5)
         
         self.canvas_frame = ttk.Frame(frm)
         self.canvas_frame.pack(side='top', fill='both', expand=True, padx=10, pady=10)
         
         self.render_chart()
+
+    def choose_data_directory(self):
+        selected = filedialog.askdirectory(
+            title='Choose where to save and load exercise files',
+            initialdir=get_data_dir() if os.path.exists(get_data_dir()) else BASE_DIR,
+            mustexist=True,
+        )
+        if not selected:
+            return
+        folder = set_data_dir(selected)
+        refresh_data_paths()
+        ensure_csv_with_subtype()
+        ensure_goals_csv()
+        self.load_entries()
+        self.load_goals_entry()
+        try:
+            self.render_chart()
+        except Exception:
+            pass
+        messagebox.showinfo('Data folder updated', f'Exercise data is now stored in:\n{folder}')
 
     def load_exercise_data(self):
         data = defaultdict(lambda: defaultdict(float))

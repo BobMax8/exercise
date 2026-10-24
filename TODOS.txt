@@ -11,3 +11,5 @@ DONE: Need exit button.
 DONE: Should display in reverse order
 TODO: Make the top buttons stand out from each other
 TODO: Publish.
+TODO: Error: Edit function does not work/looks like I get 2 exercise logs when I click edit.  I should only get the one I clicked on.
+TODO: Error: Default to yesterday does not work on daily goals
