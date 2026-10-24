@@ -258,9 +258,13 @@ class ExerciseApp(tk.Tk):
         self.load_goals_entry()
 
     def create_widgets(self):
+        toolbar = ttk.Frame(self, padding=(5, 5, 5, 0))
+        toolbar.grid(row=0, column=0, sticky='E')
+        ttk.Button(toolbar, text='Select Data Folder', command=self.choose_data_directory).pack(side='right')
+
         # Create notebook (tabbed interface)
         self.notebook = ttk.Notebook(self)
-        self.notebook.grid(row=0, column=0, sticky='NSEW', padx=5, pady=5)
+        self.notebook.grid(row=1, column=0, sticky='NSEW', padx=5, pady=5)
         
         # Exercise Logger Tab
         self.exercise_frame = ttk.Frame(self.notebook, padding=12)
@@ -399,10 +403,8 @@ class ExerciseApp(tk.Tk):
         clear_btn.grid(row=0, column=1, padx=4)
         edit_btn = ttk.Button(btn_frame, text='Edit', command=self.edit_selected_goals)
         edit_btn.grid(row=0, column=2, padx=4)
-        folder_btn = ttk.Button(btn_frame, text='Select Data Folder', command=self.choose_data_directory)
-        folder_btn.grid(row=0, column=3, padx=4)
         exit_btn = ttk.Button(btn_frame, text='Exit', command=self.exit_app)
-        exit_btn.grid(row=0, column=4, padx=4)
+        exit_btn.grid(row=0, column=3, padx=4)
 
         # Treeview for goals entries
         cols = ('date', 'exercise_goal', 'overall_goal', 'steps_goal')
@@ -513,17 +515,38 @@ class ExerciseApp(tk.Tk):
 
     def create_chart_widgets(self):
         frm = self.chart_frame
-        
+
         btn_frame = ttk.Frame(frm, padding=10)
         btn_frame.pack(side='top', fill='x')
-        
-        ttk.Button(btn_frame, text='Refresh Chart', command=self.render_chart).pack(side='left', padx=5)
-        ttk.Button(btn_frame, text='Set Data Folder', command=self.choose_data_directory).pack(side='left', padx=5)
-        ttk.Button(btn_frame, text='Exit', command=self.exit_app).pack(side='left', padx=5)
-        
+
+        self.chart_mode = 'exercise'
+        self.chart_title_var = tk.StringVar(value='Exercise Minutes Per Month')
+
+        tk.Button(btn_frame, text='Exercise Chart', command=self.show_exercise_chart,
+                  bg='blue', fg='black', activebackground='lightblue', activeforeground='black',
+                  relief='raised', bd=2, padx=8, pady=4, font=('TkDefaultFont', 10, 'bold')).pack(side='left', padx=5)
+        tk.Button(btn_frame, text='Daily Goals Chart', command=self.show_goals_chart,
+                  bg='blue', fg='black', activebackground='lightblue', activeforeground='black',
+                  relief='raised', bd=2, padx=8, pady=4, font=('TkDefaultFont', 10, 'bold')).pack(side='left', padx=5)
+        tk.Button(btn_frame, text='Refresh Chart', command=self.refresh_chart).pack(side='left', padx=5)
+        tk.Button(btn_frame, text='Exit', command=self.exit_app, bg='blue', fg='black',
+                  activebackground='lightblue', activeforeground='black', relief='raised', bd=2,
+                  padx=8, pady=4, font=('TkDefaultFont', 10, 'bold')).pack(side='left', padx=5)
+
         self.canvas_frame = ttk.Frame(frm)
         self.canvas_frame.pack(side='top', fill='both', expand=True, padx=10, pady=10)
-        
+
+        self.render_chart()
+
+    def refresh_chart(self):
+        self.render_chart()
+
+    def show_exercise_chart(self):
+        self.chart_mode = 'exercise'
+        self.render_chart()
+
+    def show_goals_chart(self):
+        self.chart_mode = 'goals'
         self.render_chart()
 
     def choose_data_directory(self):
@@ -575,34 +598,41 @@ class ExerciseApp(tk.Tk):
     def render_chart(self):
         for widget in self.canvas_frame.winfo_children():
             widget.destroy()
-        
+
+        if self.chart_mode == 'goals':
+            self.render_goals_chart()
+            return
+
+        self.render_exercise_chart()
+
+    def render_exercise_chart(self):
         data = self.load_exercise_data()
-        
+
         if not data:
             label = ttk.Label(self.canvas_frame, text='No exercise data found. Add exercises to see the chart.')
             label.pack(padx=20, pady=20)
             return
-        
+
         years = sorted(data.keys())
         months = range(1, 13)
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
         fig = Figure(figsize=(12, 6), dpi=100)
         ax = fig.add_subplot(111)
-        
+
         x = np.arange(len(months))
         width = 0.8 / len(years) if len(years) > 1 else 0.6
-        
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
                   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
-        
+
         for idx, year in enumerate(years):
             minutes_per_month = [data[year].get(month, 0) for month in months]
             offset = (idx - len(years)/2 + 0.5) * width
-            ax.bar(x + offset, minutes_per_month, width, label=str(year), 
-                   color=colors[idx % len(colors)])
-        
+            ax.bar(x + offset, minutes_per_month, width, label=str(year),
+                  color=colors[idx % len(colors)])
+
         ax.set_xlabel('Month', fontsize=12, fontweight='bold')
         ax.set_ylabel('Total Exercise Minutes', fontsize=12, fontweight='bold')
         ax.set_title('Exercise Minutes Per Month', fontsize=14, fontweight='bold')
@@ -610,9 +640,64 @@ class ExerciseApp(tk.Tk):
         ax.set_xticklabels(month_names)
         ax.legend(title='Year', fontsize=10)
         ax.grid(axis='y', alpha=0.3)
-        
+
         fig.tight_layout()
-        
+
+        canvas = FigureCanvasTkAgg(fig, master=self.canvas_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    def render_goals_chart(self):
+        if not os.path.exists(GOALS_CSV_FILE):
+            label = ttk.Label(self.canvas_frame, text='No daily goals data found. Add goals to see the chart.')
+            label.pack(padx=20, pady=20)
+            return
+
+        rows = []
+        with open(GOALS_CSV_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                date = row.get('date', '').strip()
+                if not date:
+                   continue
+                try:
+                   datetime.strptime(date, '%Y-%m-%d')
+                except ValueError:
+                   continue
+                rows.append(row)
+
+        if not rows:
+            label = ttk.Label(self.canvas_frame, text='No daily goals data found. Add goals to see the chart.')
+            label.pack(padx=20, pady=20)
+            return
+
+        goal_fields = ['exercise_goal', 'overall_goal', 'steps_goal']
+        date_labels = [r['date'] for r in rows]
+        values = {field: [] for field in goal_fields}
+        for row in rows:
+            for field in goal_fields:
+                values[field].append(1 if str(row.get(field, '')).strip().lower() == 'yes' else 0)
+
+        fig = Figure(figsize=(12, 6), dpi=100)
+        ax = fig.add_subplot(111)
+        x = np.arange(len(date_labels))
+        width = 0.25
+
+        ax.bar(x - width, values['exercise_goal'], width, label='Exercise Goal', color='#1f77b4')
+        ax.bar(x, values['overall_goal'], width, label='Overall Goal', color='#ff7f0e')
+        ax.bar(x + width, values['steps_goal'], width, label='Steps Goal', color='#2ca02c')
+
+        ax.set_title('Daily Goal Completion', fontsize=14, fontweight='bold')
+        ax.set_xlabel('Date', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Goal Met (Yes=1 / No=0)', fontsize=12, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(date_labels, rotation=45, ha='right')
+        ax.legend(title='Goal Type', fontsize=10)
+        ax.set_ylim(0, 1.2)
+        ax.grid(axis='y', alpha=0.3)
+
+        fig.tight_layout()
+
         canvas = FigureCanvasTkAgg(fig, master=self.canvas_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill='both', expand=True)
